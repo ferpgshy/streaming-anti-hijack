@@ -5,7 +5,7 @@
 Um userscript para **Tampermonkey / Violentmonkey** que neutraliza as táticas de anúncio mais agressivas dos sites de filmes e séries: aquela nova aba que abre do nada, o clique no player que vira propaganda, o overlay invisível por cima do vídeo e os popunders que ficam empilhando janela. Tudo isso **sem depender de adblock** — o próprio script corta as requisições de rede das *ad networks*.
 
 <p>
-  <img alt="version" src="https://img.shields.io/badge/version-4.8-f59e0b">
+  <img alt="version" src="https://img.shields.io/badge/version-4.9-f59e0b">
   <img alt="tampermonkey" src="https://img.shields.io/badge/Tampermonkey-compat%C3%ADvel-00485b">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -89,12 +89,17 @@ const SITES = [
 
 ### Player em domínio separado
 
-Se o player de um site ficar num domínio próprio (veja em `F12 › Elements` o `<iframe src=...>`), adicione em `PLAYER_HOSTS`:
+Se o player de um site ficar num domínio próprio (veja em `F12 › Elements` o `<iframe src=...>`), adicione em `PLAYER_HOSTS`. Host dessa lista é **exceção total**: navegar até ele nunca é bloqueado (nem pelo clique 2×) e, dentro dele, o modo `full` protege contra os anúncios do próprio player.
+
+Byse/Filemoon, DoodStream, MixDrop e Streamtape — com seus dezenas de domínios-espelho — já vêm cobertos por padrão:
 
 ```js
 const PLAYER_HOSTS = [
-  /bysebuho\.com/i,
-  /meu-player\.xyz/i,   // <- aqui
+  /byse[a-z]*\./i,      // pool rotativo bysebuho, bysefujedu, bysezoxexe...
+  /doods?\./i,          // dood.to .li .watch, doods.pro...
+  /mixdrop/i,           // + mixdrp, mixdroop, m1xdrop, CDNs md*...
+  /streamtape/i,        // + strtape, strcloud, tapecontent...
+  /meu-player\.xyz/i,   // <- adicione o seu aqui
 ];
 ```
 

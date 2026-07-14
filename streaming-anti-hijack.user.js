@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Streaming Anti-Hijack
 // @namespace    pgshy.antihijack
-// @version      4.8
+// @version      4.9
 // @description  Defesa em camadas contra popup/popunder/click-hijack em sites de streaming. Lista de sites configurável.
 // @author       ferpgshy
 // @homepageURL  https://github.com/ferpgshy/streaming-anti-hijack
@@ -63,16 +63,24 @@
 
   // Domínios de player/embed (F12 > Elements > procura <iframe src=...>)
   // Adicione aqui se o player de algum site ficar em domínio separado.
+  // Hosts daqui são EXCEÇÃO total: navegar até eles nunca é bloqueado
+  // (nem o clique 2x da camada 7) e dentro deles o modo full protege.
   const PLAYER_HOSTS = [
-    /bysebuho\.com/i,   // player embed do pobreflix (visto nos logs)
+    // --- Byse / Filemoon (pool de domínios byse*.com rotativo) ---
+    /byse[a-z]*\./i,    // bysebuho, bysefujedu, bysezoxexe, bysejikuar...
+    /filemoon/i,        // Byse é o player da rede Filemoon
     /q8y5z\.com/i,      // player JW do pobreflix (visto nos logs)
     // --- DoodStream e aliases (dood.to .li .watch, d000d, ds2play...) ---
-    /dood\./i, /doodstream/i, /d[o0]{2,5}d\./i, /ds2play/i, /ds2video/i,
-    /dooodster/i, /vidply/i,
-    // --- MixDrop ---
-    /mixdrop/i, /mxdrop/i,
+    /doods?\./i, /doodstream/i, /d[o0]{2,5}d\./i, /ds2play/i, /ds2video/i,
+    /dooodster/i, /vidply/i, /do7go/i, /vide0\./i,
+    // --- MixDrop e aliases/CDNs ---
+    /mixdrop/i, /mixdroop/i, /mxdrop/i, /mixdrp/i, /m1xdrop/i,
+    /mdy48tn97/i, /mdfx9dc8n/i, /md3b0j6hj/i, /mdzsmutpcvykb/i,
     // --- Streamtape e aliases ---
-    /streamtape/i, /strtape/i, /strtpe/i, /streamta\.pe/i,
+    /streamtape/i, /strtape/i, /strtpe/i, /streamta\.pe/i, /strcloud/i,
+    /(^|\.)stape\./i, /shavetape/i, /tapecontent/i, /adblocktape/i,
+    /antiadtape/i, /watchadsontape/i, /tapewithadblock/i, /tapeblocker/i,
+    /streamadbl/i,
     // /exemplo-player\.xyz/i,
   ];
 
