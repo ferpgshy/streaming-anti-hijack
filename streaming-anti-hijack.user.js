@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Streaming Anti-Hijack
 // @namespace    pgshy.antihijack
-// @version      4.6
+// @version      4.7
 // @description  Defesa em camadas contra popup/popunder/click-hijack em sites de streaming. Lista de sites configurável.
 // @author       ferpgshy
 // @homepageURL  https://github.com/ferpgshy/streaming-anti-hijack
@@ -66,6 +66,13 @@
   const PLAYER_HOSTS = [
     /bysebuho\.com/i,   // player embed do pobreflix (visto nos logs)
     /q8y5z\.com/i,      // player JW do pobreflix (visto nos logs)
+    // --- DoodStream e aliases (dood.to .li .watch, d000d, ds2play...) ---
+    /dood\./i, /doodstream/i, /d[o0]{2,5}d\./i, /ds2play/i, /ds2video/i,
+    /dooodster/i, /vidply/i,
+    // --- MixDrop ---
+    /mixdrop/i, /mxdrop/i,
+    // --- Streamtape e aliases ---
+    /streamtape/i, /strtape/i, /strtpe/i, /streamta\.pe/i,
     // /exemplo-player\.xyz/i,
   ];
 
@@ -479,15 +486,56 @@
   // ================================================================
   if (MODE === 'full') {
 
+    // Toast discreto no rodapé — o usuário comum não olha o console,
+    // então avisos que exigem ação dele aparecem na página.
+    let toastEl = null, toastTimer = null;
+    function toast(msg) {
+      try {
+        if (!document.body) return;
+        if (!toastEl) {
+          toastEl = document.createElement('div');
+          toastEl.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
+            'background:#111;color:#f59e0b;font:13px/1.4 system-ui,sans-serif;padding:10px 16px;' +
+            'border-radius:8px;z-index:2147483647;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.5);' +
+            'transition:opacity .3s;max-width:90vw;text-align:center;';
+        }
+        toastEl.textContent = msg;
+        toastEl.style.opacity = '1';
+        document.body.appendChild(toastEl);
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { toastEl.style.opacity = '0'; }, 2800);
+      } catch (e) {}
+    }
+
     // CAMADA 7 — clique REAL sequestrado (href/target trocado no mousedown,
-    // links externos com stopPropagation, named targets)
+    // links externos com stopPropagation, named targets).
+    // Link externo NÃO é bloqueado pra sempre: o 1º clique é barrado e
+    // avisa; clicar DE NOVO no mesmo link em até 5s deixa passar (é assim
+    // que a página de download legítima do player funciona). Hijack não
+    // clica duas vezes no mesmo href — e se ele trocar o href no meio,
+    // o destino muda e o desbloqueio não vale.
+    let lastBlocked = { href: '', t: 0 };
+    const userInsisted = (href) => lastBlocked.href === href && (Date.now() - lastBlocked.t) < 5000;
+
     ['pointerdown', 'mousedown', 'click', 'auxclick'].forEach((type) => {
       document.addEventListener(type, (ev) => {
         const a = ev.composedPath().find((n) => n instanceof HTMLAnchorElement);
         if (!a || !a.href) return;
         if (isExternal(a.href) && !isAllowed(a.href)) {
+          if (userInsisted(a.href)) {
+            if (type === 'click') {
+              log('navegação externa PERMITIDA (2º clique) ->', a.href);
+              lastBlocked = { href: '', t: 0 };
+            }
+            return; // usuário insistiu: deixa ir
+          }
           ev.preventDefault();
           ev.stopImmediatePropagation();
+          if (type === 'click') {
+            lastBlocked = { href: a.href, t: Date.now() };
+            let host = ''; try { host = new URL(a.href).hostname; } catch (e) {}
+            toast('🛡️ Link externo bloqueado (' + host + ') — clique de novo pra abrir');
+          }
           log('navegação externa bloqueada (' + type + ') ->', a.href);
         } else if (a.target && !/^(_self|_parent|_top)$/.test(a.target) && isExternal(a.href)) {
           a.removeAttribute('target');
@@ -681,6 +729,60 @@
         neutralizeFullscreenOverlays();
       }
     }, 1500);
+
+    // ============================================================
+    // CAMADA 13 — ANTI ANTI-DEVTOOLS
+    // O site roda new Function('debugger')() em loop pra travar o F12
+    // no breakpoint. Todo código criado dinamicamente (Function, eval
+    // indireto, setTimeout/setInterval com string) passa por um filtro
+    // que arranca o statement 'debugger'. Também impede o site de
+    // limpar o console pra esconder o que está fazendo.
+    // ============================================================
+    const stripDebugger = (code) => {
+      if (typeof code === 'string' && /\bdebugger\b/.test(code)) {
+        log('debugger removido de código dinâmico');
+        return code.replace(/\bdebugger\b/g, ';');
+      }
+      return code;
+    };
+
+    const _Function = window.Function;
+    const patchedFunction = cloak(function Function(...args) {
+      if (args.length) args[args.length - 1] = stripDebugger(args[args.length - 1]);
+      return _Function.apply(this, args);
+    }, 'Function');
+    patchedFunction.prototype = _Function.prototype;
+    try {
+      window.Function = patchedFunction;
+      Object.defineProperty(_Function.prototype, 'constructor', {
+        value: patchedFunction, writable: true, configurable: true,
+      });
+    } catch (e) {}
+
+    ['setTimeout', 'setInterval'].forEach((k) => {
+      const orig = window[k];
+      window[k] = cloak(function (fn, ...rest) {
+        return orig.call(this, typeof fn === 'string' ? stripDebugger(fn) : fn, ...rest);
+      }, k);
+    });
+
+    const _eval = window.eval;
+    window.eval = cloak(function (code) {
+      return _eval.call(window, stripDebugger(code));
+    }, 'eval');
+
+    try { console.clear = cloak(function clear() {}, 'clear'); } catch (e) {}
+
+    // ============================================================
+    // CAMADA 14 — BOTÃO DIREITO LIVRE
+    // O site cancela o 'contextmenu' pra esconder "Inspecionar".
+    // Nosso listener registra em document-start (antes de qualquer
+    // script do site) na fase de captura da window — o primeiro da
+    // fila. stopImmediatePropagation() impede TODOS os listeners do
+    // site de rodarem, e como não chamamos preventDefault, o menu
+    // nativo do navegador abre normalmente.
+    // ============================================================
+    window.addEventListener('contextmenu', (ev) => ev.stopImmediatePropagation(), true);
   }
 
   log('MODO ' + MODE.toUpperCase() + ' ativo em', (window.top === window.self ? 'TOP' : 'IFRAME'), '->', location.href);

@@ -5,7 +5,7 @@
 Um userscript para **Tampermonkey / Violentmonkey** que neutraliza as táticas de anúncio mais agressivas dos sites de filmes e séries: aquela nova aba que abre do nada, o clique no player que vira propaganda, o overlay invisível por cima do vídeo e os popunders que ficam empilhando janela. Tudo isso **sem depender de adblock** — o próprio script corta as requisições de rede das *ad networks*.
 
 <p>
-  <img alt="version" src="https://img.shields.io/badge/version-4.6-f59e0b">
+  <img alt="version" src="https://img.shields.io/badge/version-4.7-f59e0b">
   <img alt="tampermonkey" src="https://img.shields.io/badge/Tampermonkey-compat%C3%ADvel-00485b">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -35,6 +35,7 @@ Sites de streaming gratuito vivem de anúncio, e os piores usam técnicas que pa
 - iframes `sandbox="allow-popups"` que escapam pra abrir aba;
 - push notifications e service workers de propaganda;
 - falsos diálogos de permissão ("Permitir / Cancelar") desenhados na própria página;
+- anti-devtools que trava o F12 num loop de `debugger` e bloqueio do botão direito;
 - detecção de adblock que troca de tática quando percebe que está bloqueada.
 
 Este script trata **cada uma dessas camadas** de forma independente, e só age nos sites que você configurar — no resto da web ele fica inerte.
@@ -60,11 +61,13 @@ As camadas de defesa:
 - **4 · Forms fantasma** — `form.submit()` / `requestSubmit()` pra domínio externo são bloqueados.
 - **5 · `<base target>`** — neutraliza o redirect por header `<base>`.
 - **6 · Flags de popunder** — marca como "já carregado" as *flags* dos popunders mais conhecidos.
-- **7–8 · Cliques reais e `beforeunload`** — intercepta a navegação externa no `pointerdown`/`mousedown` e recusa *traps* de saída de página.
+- **7–8 · Cliques reais e `beforeunload`** — intercepta a navegação externa no `pointerdown`/`mousedown` e recusa *traps* de saída de página. Link externo não fica bloqueado pra sempre: o 1º clique é barrado com um aviso na tela, e **clicar de novo no mesmo link em até 5s deixa passar** — é assim que você chega na página de download legítima do player. Hijack não clica duas vezes, e se ele trocar o `href` no meio, o desbloqueio não vale.
 - **9 · Push / Service Worker** — nega permissão de notificação e bloqueia registro de SW de anúncio.
 - **10 · Overlays invisíveis** — remove o "vidro" transparente por cima do player, com heurística que **preserva o player e o fullscreen** (nunca quebra os controles do vídeo).
 - **11 · Bloqueio de rede** — corta `fetch`, `XHR`, `sendBeacon`, `Image().src` e `<script|img>.src` para *ad networks* conhecidas e TLDs-lixo. É esta camada que faz o script se sustentar **em Chrome puro, sem adblock nenhum**.
 - **12 · Resquícios cosméticos** — remove os falsos diálogos de permissão ("Permitir / Cancelar") e qualquer card cuja imagem venha de domínio de anúncio. Esses elementos chegam prontos no HTML parseado, então escapam dos hooks de rede — aqui eles são detectados pelo template do *ad network* (`data-onopen` / `data-onclose` / `data-area`) e arrancados inteiros do DOM.
+- **13 · Anti anti-devtools** — sites rodam `new Function('debugger')()` em loop pra travar o F12 no breakpoint. Todo código criado dinamicamente (`Function`, `eval` indireto, `setTimeout`/`setInterval` com string) passa por um filtro que arranca o `debugger`, e o site também não consegue mais limpar o console pra esconder rastro.
+- **14 · Botão direito livre** — o script registra o listener de `contextmenu` antes de qualquer script do site e impede os bloqueadores de botão direito de rodarem. O menu nativo do navegador (Inspecionar etc.) volta a abrir.
 
 ---
 
