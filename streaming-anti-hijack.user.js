@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Streaming Anti-Hijack
 // @namespace    pgshy.antihijack
-// @version      4.5
+// @version      4.6
 // @description  Defesa em camadas contra popup/popunder/click-hijack em sites de streaming. Lista de sites configurável.
 // @author       ferpgshy
 // @homepageURL  https://github.com/ferpgshy/streaming-anti-hijack
@@ -565,6 +565,7 @@
         if (isClickTrap(el)) { log('overlay removido:', el); el.remove(); }
       });
       root.querySelectorAll('base[target]').forEach(neutralizeBase);
+      sweepAdRemnants(root);
     }
     const mo = new MutationObserver((muts) => {
       for (const m of muts) for (const n of m.addedNodes) {
@@ -577,6 +578,57 @@
     });
     try { mo.observe(document.documentElement, { childList: true, subtree: true }); } catch (e) {}
     document.addEventListener('DOMContentLoaded', () => sweepDOM(document));
+
+    // ============================================================
+    // CAMADA 12 — RESQUÍCIOS COSMÉTICOS (falso diálogo de permissão)
+    // Aquele card "Permitir / Cancelar" fingindo prompt de notificação
+    // vem pronto no HTML parseado, então escapa dos hooks de rede da
+    // camada 11 (que só pegam src setado via JS) e da camada 10 (não
+    // é overlay de tela cheia). Detecta pelo template do ad network
+    // (data-onopen/data-onclose/data-area) e por qualquer <img> cujo
+    // src aponte pra domínio de anúncio, e remove o card inteiro.
+    // ============================================================
+    const AD_REMNANT_SELECTORS = [
+      '#trigger_target',
+      '[data-area][data-onopen]',
+      '[data-area][data-onclose]',
+    ].join(',');
+
+    // Sobe até o contêiner do anúncio, sem engolir conteúdo do site:
+    // para no body, em qualquer coisa que contenha player, ou quando
+    // o pai tem subárvore grande demais pra ser só o card do ad.
+    function adContainer(el) {
+      let box = el;
+      while (
+        box.parentElement &&
+        box.parentElement !== document.body &&
+        box.parentElement !== document.documentElement &&
+        !box.parentElement.querySelector('video, iframe') &&
+        box.parentElement.querySelectorAll('*').length <= 40
+      ) box = box.parentElement;
+      return box;
+    }
+
+    function sweepAdRemnants(root) {
+      try {
+        if (!root.querySelectorAll) return;
+        const hits = new Set();
+        if (root.matches && root.matches(AD_REMNANT_SELECTORS)) hits.add(root);
+        root.querySelectorAll(AD_REMNANT_SELECTORS).forEach((el) => hits.add(el));
+        root.querySelectorAll('img[src]').forEach((img) => {
+          if (isAdRequest(img.src)) hits.add(img);
+        });
+        hits.forEach((el) => {
+          if (!el.isConnected) return;
+          const box = adContainer(el);
+          log('resquício de anúncio removido:', box.id ? '#' + box.id : box);
+          box.remove();
+        });
+      } catch (e) {}
+    }
+
+    // O card às vezes é injetado bem depois do load — varredura leve.
+    setInterval(() => sweepAdRemnants(document), 1200);
 
     // ============================================================
     // FULLSCREEN — tratamento especial.

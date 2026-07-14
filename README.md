@@ -5,7 +5,7 @@
 Um userscript para **Tampermonkey / Violentmonkey** que neutraliza as táticas de anúncio mais agressivas dos sites de filmes e séries: aquela nova aba que abre do nada, o clique no player que vira propaganda, o overlay invisível por cima do vídeo e os popunders que ficam empilhando janela. Tudo isso **sem depender de adblock** — o próprio script corta as requisições de rede das *ad networks*.
 
 <p>
-  <img alt="version" src="https://img.shields.io/badge/version-4.5-f59e0b">
+  <img alt="version" src="https://img.shields.io/badge/version-4.6-f59e0b">
   <img alt="tampermonkey" src="https://img.shields.io/badge/Tampermonkey-compat%C3%ADvel-00485b">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -34,6 +34,7 @@ Sites de streaming gratuito vivem de anúncio, e os piores usam técnicas que pa
 - overlays transparentes de tela cheia por cima do player (você acha que clicou no play, clicou no anúncio);
 - iframes `sandbox="allow-popups"` que escapam pra abrir aba;
 - push notifications e service workers de propaganda;
+- falsos diálogos de permissão ("Permitir / Cancelar") desenhados na própria página;
 - detecção de adblock que troca de tática quando percebe que está bloqueada.
 
 Este script trata **cada uma dessas camadas** de forma independente, e só age nos sites que você configurar — no resto da web ele fica inerte.
@@ -63,6 +64,7 @@ As camadas de defesa:
 - **9 · Push / Service Worker** — nega permissão de notificação e bloqueia registro de SW de anúncio.
 - **10 · Overlays invisíveis** — remove o "vidro" transparente por cima do player, com heurística que **preserva o player e o fullscreen** (nunca quebra os controles do vídeo).
 - **11 · Bloqueio de rede** — corta `fetch`, `XHR`, `sendBeacon`, `Image().src` e `<script|img>.src` para *ad networks* conhecidas e TLDs-lixo. É esta camada que faz o script se sustentar **em Chrome puro, sem adblock nenhum**.
+- **12 · Resquícios cosméticos** — remove os falsos diálogos de permissão ("Permitir / Cancelar") e qualquer card cuja imagem venha de domínio de anúncio. Esses elementos chegam prontos no HTML parseado, então escapam dos hooks de rede — aqui eles são detectados pelo template do *ad network* (`data-onopen` / `data-onclose` / `data-area`) e arrancados inteiros do DOM.
 
 ---
 
