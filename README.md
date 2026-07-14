@@ -5,7 +5,7 @@
 Um userscript para **Tampermonkey / Violentmonkey** que neutraliza as táticas de anúncio mais agressivas dos sites de filmes e séries: aquela nova aba que abre do nada, o clique no player que vira propaganda, o overlay invisível por cima do vídeo e os popunders que ficam empilhando janela. Tudo isso **sem depender de adblock** — o próprio script corta as requisições de rede das *ad networks*.
 
 <p>
-  <img alt="version" src="https://img.shields.io/badge/version-4.9-f59e0b">
+  <img alt="version" src="https://img.shields.io/badge/version-4.10-f59e0b">
   <img alt="tampermonkey" src="https://img.shields.io/badge/Tampermonkey-compat%C3%ADvel-00485b">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -55,7 +55,7 @@ O script roda em `document-start` e decide um **modo de operação** por context
 As camadas de defesa:
 
 - **0 · Anti-detecção** — toda função sobrescrita responde `toString()` como se fosse nativa, então o *ad script* não percebe que foi bloqueado e não parte pro plano B.
-- **1 · `window.open` travado** — devolve uma "janela fake" (`closed: false`) pra fingir sucesso e o anúncio não tentar outro método.
+- **1 · `window.open` travado** — devolve uma "janela fake" (`closed: false`) pra fingir sucesso e o anúncio não tentar outro método. Exceção: **dentro de um host de player**, `open` pro próprio player (ex.: botão de download do Byse) usa o `open` nativo e funciona — só destino externo é bloqueado. No site de streaming continua tudo travado, senão voltaria o *tabunder* clássico.
 - **2 · Blindagem de iframes** — todo iframe same-origin é neutralizado no instante da inserção (hooks síncronos), no acesso via `contentWindow`, no `load` e num *sweep* periódico. O truque do "iframe limpo" não passa.
 - **3 · Cliques sintéticos** — `click()`, `dispatchEvent` e eventos não confiáveis apontando pra links externos são barrados.
 - **4 · Forms fantasma** — `form.submit()` / `requestSubmit()` pra domínio externo são bloqueados.

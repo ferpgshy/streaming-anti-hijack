@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Streaming Anti-Hijack
 // @namespace    pgshy.antihijack
-// @version      4.9
+// @version      4.10
 // @description  Defesa em camadas contra popup/popunder/click-hijack em sites de streaming. Lista de sites configurável.
 // @author       ferpgshy
 // @homepageURL  https://github.com/ferpgshy/streaming-anti-hijack
@@ -234,7 +234,18 @@
   function lockOpen(win, label) {
     try {
       if (win.__ahj4) return;
-      const blocked = cloak(function open(url) {
+      const blocked = cloak(function open(url, target, features) {
+        // Em host de PLAYER, open pro próprio player (botão de download
+        // do Byse etc.) é legítimo — só destino externo é anúncio.
+        // No site de streaming continua tudo bloqueado: liberar open da
+        // própria página lá reabriria o tabunder clássico (duplica o
+        // site em aba nova e redireciona a atual pro anúncio).
+        try {
+          if (IS_PLAYER_HOST && url && !isExternal(url) && nativeOpen) {
+            log('window.open PERMITIDO (player) ->', url);
+            return nativeOpen(url, target, features);
+          }
+        } catch (e) {}
         log('window.open BLOQUEADO em [' + label + '] ->', url);
         return fakeWindow;
       }, 'open');
@@ -246,8 +257,12 @@
   }
 
   // Guarda o open NATIVO antes de travar — usado pela camada 7 pra
-  // abrir a página de download num clique permitido pelo usuário.
+  // abrir a página de download num clique permitido pelo usuário e
+  // pelo lockOpen pra liberar open interno em host de player.
   const nativeOpen = window.open && window.open.bind(window);
+
+  // Estamos numa página/iframe DO PRÓPRIO player? (q8y5z, byse*, dood...)
+  const IS_PLAYER_HOST = PLAYER_HOSTS.some((re) => re.test(location.hostname));
 
   lockOpen(window, MODE + ':' + location.hostname);
 
