@@ -5,7 +5,7 @@
 Um userscript para **Tampermonkey / Violentmonkey** que neutraliza as táticas de anúncio mais agressivas dos sites de filmes e séries: aquela nova aba que abre do nada, o clique no player que vira propaganda, o overlay invisível por cima do vídeo e os popunders que ficam empilhando janela. Tudo isso **sem depender de adblock** — o próprio script corta as requisições de rede das *ad networks*.
 
 <p>
-  <img alt="version" src="https://img.shields.io/badge/version-4.7-f59e0b">
+  <img alt="version" src="https://img.shields.io/badge/version-4.8-f59e0b">
   <img alt="tampermonkey" src="https://img.shields.io/badge/Tampermonkey-compat%C3%ADvel-00485b">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -61,7 +61,7 @@ As camadas de defesa:
 - **4 · Forms fantasma** — `form.submit()` / `requestSubmit()` pra domínio externo são bloqueados.
 - **5 · `<base target>`** — neutraliza o redirect por header `<base>`.
 - **6 · Flags de popunder** — marca como "já carregado" as *flags* dos popunders mais conhecidos.
-- **7–8 · Cliques reais e `beforeunload`** — intercepta a navegação externa no `pointerdown`/`mousedown` e recusa *traps* de saída de página. Link externo não fica bloqueado pra sempre: o 1º clique é barrado com um aviso na tela, e **clicar de novo no mesmo link em até 5s deixa passar** — é assim que você chega na página de download legítima do player. Hijack não clica duas vezes, e se ele trocar o `href` no meio, o desbloqueio não vale.
+- **7–8 · Cliques reais e `beforeunload`** — intercepta a navegação externa no `pointerdown`/`mousedown` e recusa *traps* de saída de página. Link externo não fica bloqueado pra sempre: o 1º clique é barrado com um aviso na tela, e **clicar de novo no mesmo link em até 5s deixa passar** — é assim que você chega na página de download legítima do player. Hijack não clica duas vezes, e se ele trocar o `href` no meio, o desbloqueio não vale. Mesmo no clique permitido os scripts do site não rodam: a navegação é feita pelo próprio Anti-Hijack, direto pro endereço que você viu — o site não consegue pegar carona no clique liberado pra te mandar pra outro lugar.
 - **9 · Push / Service Worker** — nega permissão de notificação e bloqueia registro de SW de anúncio.
 - **10 · Overlays invisíveis** — remove o "vidro" transparente por cima do player, com heurística que **preserva o player e o fullscreen** (nunca quebra os controles do vídeo).
 - **11 · Bloqueio de rede** — corta `fetch`, `XHR`, `sendBeacon`, `Image().src` e `<script|img>.src` para *ad networks* conhecidas e TLDs-lixo. É esta camada que faz o script se sustentar **em Chrome puro, sem adblock nenhum**.

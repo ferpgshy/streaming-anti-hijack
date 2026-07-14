@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Streaming Anti-Hijack
 // @namespace    pgshy.antihijack
-// @version      4.7
+// @version      4.8
 // @description  Defesa em camadas contra popup/popunder/click-hijack em sites de streaming. Lista de sites configurável.
 // @author       ferpgshy
 // @homepageURL  https://github.com/ferpgshy/streaming-anti-hijack
@@ -236,6 +236,10 @@
       try { win.open = () => fakeWindow; } catch (e2) {}
     }
   }
+
+  // Guarda o open NATIVO antes de travar — usado pela camada 7 pra
+  // abrir a página de download num clique permitido pelo usuário.
+  const nativeOpen = window.open && window.open.bind(window);
 
   lockOpen(window, MODE + ':' + location.hostname);
 
@@ -523,11 +527,19 @@
         if (!a || !a.href) return;
         if (isExternal(a.href) && !isAllowed(a.href)) {
           if (userInsisted(a.href)) {
+            // Mesmo no clique PERMITIDO os handlers do site não rodam:
+            // a navegação é feita por nós, direto pro href que o
+            // usuário viu. Sem isso, o script do site pega carona no
+            // clique liberado e redireciona pra onde quiser.
+            ev.preventDefault();
+            ev.stopImmediatePropagation();
             if (type === 'click') {
               log('navegação externa PERMITIDA (2º clique) ->', a.href);
               lastBlocked = { href: '', t: 0 };
+              if (a.target === '_blank' && nativeOpen) nativeOpen(a.href, '_blank', 'noopener');
+              else location.href = a.href;
             }
-            return; // usuário insistiu: deixa ir
+            return;
           }
           ev.preventDefault();
           ev.stopImmediatePropagation();
