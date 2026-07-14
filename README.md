@@ -23,6 +23,8 @@ Um userscript para **Tampermonkey / Violentmonkey** que neutraliza as táticas d
 
 > **Atualização automática:** depois de instalado, o Tampermonkey verifica o repositório de tempos em tempos e puxa a nova versão sozinho sempre que o `@version` do script subir. Você **nunca mais precisa reinstalar** — só instalar uma vez.
 
+> ⚠️ **Não cole o código à mão no editor do Tampermonkey.** Script colado manualmente não fica vinculado ao GitHub e a atualização automática pode nunca engatar — você fica preso numa versão velha sem saber. Sempre instale **pelo link acima**. Se você colou no passado: apague o script e instale de novo pelo link (é uma vez só).
+
 ---
 
 ## Por que ele existe
