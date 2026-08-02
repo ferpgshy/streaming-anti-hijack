@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Streaming Anti-Hijack
 // @namespace    pgshy.antihijack
-// @version      4.10
-// @description  Defesa em camadas contra popup/popunder/click-hijack em sites de streaming. Lista de sites configurável.
+// @version      4.11
+// @description  Defesa em camadas contra popup/popunder/click-hijack em sites de streaming, com filtro de qualidade (CAM/TS). Lista de sites configurável.
 // @author       ferpgshy
 // @homepageURL  https://github.com/ferpgshy/streaming-anti-hijack
 // @supportURL   https://github.com/ferpgshy/streaming-anti-hijack/issues
@@ -88,6 +88,17 @@
   const ALLOW = [
     // /discord\.gg/i,
   ];
+
+  // ================================================================
+  // FILTRO DE QUALIDADE (camada 15) — some da listagem com os títulos
+  // gravados no cinema. Nesses sites a tarja fica num elemento curto
+  // dentro do card; no pobreflix é assim:
+  //   <div class="top"><div>CAM</div><div>DUB</div></div>
+  // Adicione/remova siglas aqui (ex.: tire CAM, ponha LEG pra esconder
+  // legendado). false em HIDE_QUALITY desliga a camada inteira.
+  // ================================================================
+  const HIDE_QUALITY = true;
+  const HIDE_QUALITY_TAGS = /(^|\W)(CAM|CAMRIP|HDCAM|TS|HDTS|TELESYNC|TC|TELECINE|HDTC)(\W|$)/i;
 
   // ================================================================
   // BLOQUEIO DE REDE (camada 11) — config. Implementação mais abaixo,
@@ -649,6 +660,7 @@
       });
       root.querySelectorAll('base[target]').forEach(neutralizeBase);
       sweepAdRemnants(root);
+      sweepQuality(root);
     }
     const mo = new MutationObserver((muts) => {
       for (const m of muts) for (const n of m.addedNodes) {
@@ -711,7 +723,7 @@
     }
 
     // O card às vezes é injetado bem depois do load — varredura leve.
-    setInterval(() => sweepAdRemnants(document), 1200);
+    setInterval(() => { sweepAdRemnants(document); sweepQuality(document); }, 1200);
 
     // ============================================================
     // FULLSCREEN — tratamento especial.
@@ -818,6 +830,71 @@
     // nativo do navegador abre normalmente.
     // ============================================================
     window.addEventListener('contextmenu', (ev) => ev.stopImmediatePropagation(), true);
+
+    // ============================================================
+    // CAMADA 15 — FILTRO DE QUALIDADE (CAM/TS/TC fora da listagem)
+    // A tarja é um elemento FOLHA de texto curto dentro do card
+    // (<div>CAM</div>). Achou a tarja, sobe até o card inteiro e
+    // esconde com display:none — não remove do DOM, porque o
+    // carrossel (Swiper) já ignora slide escondido no cálculo de
+    // largura, enquanto remover no meio da vida dele deixa a barra
+    // de rolagem do carrossel com buraco.
+    // Regras que evitam esconder o que não é card:
+    //   - a tarja precisa estar dentro de um <a href> => só listagem
+    //     e carrossel entram; a página do próprio filme nunca some;
+    //   - <h1..h6> nunca conta como tarja (existe filme chamado "Cam");
+    //   - a subida para quando o pai já agrupa outros links (grade)
+    //     ou vira container grande demais pra ser um card.
+    // ============================================================
+    const qualitySeen = new WeakSet();
+
+    function qualityTagOf(el) {
+      if (el.childElementCount) return null;            // só folha
+      if (/^H[1-6]$/.test(el.tagName)) return null;     // título, não tarja
+      const t = el.textContent.replace(/\u00a0/g, ' ').trim();
+      if (!t || t.length > 24) return null;
+      return HIDE_QUALITY_TAGS.test(t) ? t : null;
+    }
+
+    function cardOf(badge) {
+      const a = badge.closest('a[href]');
+      if (!a) return null;
+      let card = a;
+      for (let i = 0; i < 4 && card.parentElement; i++) {
+        const p = card.parentElement;
+        if (p === document.body || p === document.documentElement) break;
+        if (p.querySelectorAll('a[href]').length > 1) break;  // pai já tem outros cards
+        if (p.querySelectorAll('*').length > 50) break;       // seção, não card
+        card = p;
+      }
+      return card;
+    }
+
+    function sweepQuality(root) {
+      if (!HIDE_QUALITY || !root.querySelectorAll) return;
+      try {
+        const els = [];
+        if (root.matches && root.matches('div, span, li, p, b, i, em, strong')) els.push(root);
+        root.querySelectorAll('div, span, li, p, b, i, em, strong').forEach((el) => els.push(el));
+        for (const el of els) {
+          if (qualitySeen.has(el)) continue;
+          // Sem texto ainda = parser no meio do card; não marca como
+          // visto pra reavaliar na próxima varredura.
+          if (!el.textContent.trim()) continue;
+          qualitySeen.add(el);
+          const tag = qualityTagOf(el);
+          if (!tag) continue;
+          const card = cardOf(el);
+          if (!card || card.dataset.ahjQuality) continue;
+          if (card.querySelector('video, iframe')) continue;  // nunca esconde player
+          card.dataset.ahjQuality = tag;
+          card.style.setProperty('display', 'none', 'important');
+          const titleEl = card.querySelector('h1, h2, h3, h4');
+          log('qualidade [' + tag + '] escondida ->',
+              ((titleEl && titleEl.textContent) || card.textContent || '').trim().slice(0, 60));
+        }
+      } catch (e) {}
+    }
   }
 
   log('MODO ' + MODE.toUpperCase() + ' ativo em', (window.top === window.self ? 'TOP' : 'IFRAME'), '->', location.href);

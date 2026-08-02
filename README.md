@@ -5,7 +5,7 @@
 Um userscript para **Tampermonkey / Violentmonkey** que neutraliza as táticas de anúncio mais agressivas dos sites de filmes e séries: aquela nova aba que abre do nada, o clique no player que vira propaganda, o overlay invisível por cima do vídeo e os popunders que ficam empilhando janela. Tudo isso **sem depender de adblock** — o próprio script corta as requisições de rede das *ad networks*.
 
 <p>
-  <img alt="version" src="https://img.shields.io/badge/version-4.10-f59e0b">
+  <img alt="version" src="https://img.shields.io/badge/version-4.11-f59e0b">
   <img alt="tampermonkey" src="https://img.shields.io/badge/Tampermonkey-compat%C3%ADvel-00485b">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -70,6 +70,7 @@ As camadas de defesa:
 - **12 · Resquícios cosméticos** — remove os falsos diálogos de permissão ("Permitir / Cancelar") e qualquer card cuja imagem venha de domínio de anúncio. Esses elementos chegam prontos no HTML parseado, então escapam dos hooks de rede — aqui eles são detectados pelo template do *ad network* (`data-onopen` / `data-onclose` / `data-area`) e arrancados inteiros do DOM.
 - **13 · Anti anti-devtools** — sites rodam `new Function('debugger')()` em loop pra travar o F12 no breakpoint. Todo código criado dinamicamente (`Function`, `eval` indireto, `setTimeout`/`setInterval` com string) passa por um filtro que arranca o `debugger`, e o site também não consegue mais limpar o console pra esconder rastro.
 - **14 · Botão direito livre** — o script registra o listener de `contextmenu` antes de qualquer script do site e impede os bloqueadores de botão direito de rodarem. O menu nativo do navegador (Inspecionar etc.) volta a abrir.
+- **15 · Filtro de qualidade** — título com tarja **CAM / TS / TC** (aquela gravação tremida feita dentro do cinema) simplesmente não aparece na listagem. O card inteiro some — capa, nome, o link todo — tanto na grade quanto no carrossel, inclusive no que carrega depois por scroll. Configurável em `HIDE_QUALITY_TAGS`.
 
 ---
 
@@ -115,12 +116,42 @@ const ALLOW = [
 ];
 ```
 
+### Esconder filmes CAM (filtro de qualidade)
+
+Filme gravado na sala de cinema costuma vir marcado com uma tarja no card. No pobreflix, por exemplo, o card é assim:
+
+```html
+<div class="swiper-slide">
+  <a href="/filmes/online/moana-dublado-72985/">
+    <div class="top"><div>CAM</div><div>DUB</div></div>   <!-- <- a tarja -->
+    <div class="info"><h3>Moana</h3><p>2026</p></div>
+  </a>
+</div>
+```
+
+O script acha essa tarja, sobe até o card inteiro e esconde. Edite as siglas em `HIDE_QUALITY_TAGS`:
+
+```js
+const HIDE_QUALITY = true;   // false desliga a camada
+const HIDE_QUALITY_TAGS = /(^|\W)(CAM|CAMRIP|HDCAM|TS|HDTS|TELESYNC|TC|TELECINE|HDTC)(\W|$)/i;
+//                                 ^ tire ou acrescente aqui (ex.: |LEG pra esconder legendado)
+```
+
+Funciona em qualquer site da lista, não só no pobreflix — a busca é pelo **texto** da tarja, não pela classe CSS. Três travas evitam esconder o que não é card:
+
+- a tarja precisa estar **dentro de um `<a href>`** — ou seja, só listagem e carrossel. A página do próprio filme nunca some, mesmo mostrando "CAM";
+- `<h1>`…`<h6>` nunca contam como tarja (existe filme chamado *Cam*, de 2018 — ele continua aparecendo);
+- a subida do card para assim que o elemento acima já agrupa outros links, então some **um card**, nunca a fileira inteira.
+
+O card é escondido com `display:none`, não removido do DOM: o Swiper ignora slide escondido quando calcula o carrossel, enquanto remover o nó no meio da vida dele deixaria buraco na rolagem. Cada card escondido vira uma linha no console e fica marcado com `data-ahj-quality="CAM"`, então dá pra conferir no `F12 › Elements` o que sumiu.
+
 ### Ajustes finos
 
 | Flag | Padrão | Efeito |
 |------|--------|--------|
 | `NETWORK_BLOCK` | `true` | Bloqueio de rede autossuficiente (não depende de adblock) |
 | `PROTECT_UNKNOWN_IFRAMES` | `true` | Protege também iframes de origem indeterminada. Se quebrar login em popup de algum site normal, mude pra `false` |
+| `HIDE_QUALITY` | `true` | Esconde da listagem os títulos com tarja CAM/TS/TC |
 
 ---
 
@@ -132,6 +163,7 @@ Abra o **Console** (`F12 › Console`) num site da lista. Você vai ver logs em 
 [AntiHijack v4] MODO FULL ativo em TOP -> https://...
 [AntiHijack v4] window.open BLOQUEADO em [full:...] -> https://ad...
 [AntiHijack v4] overlay removido: <div ...>
+[AntiHijack v4] qualidade [CAM] escondida -> Moana
 ```
 
 Cada linha é uma tentativa de sequestro que foi barrada.
